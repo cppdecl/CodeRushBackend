@@ -30,6 +30,7 @@ db.serialize(() =>
         uuid TEXT NOT NULL PRIMARY KEY CHECK (uuid <> ''),
         name TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (name <> ''),
         top_wpm INTEGER DEFAULT 0,
+        total_games INTEGER DEFAULT 0,
         is_admin INTEGER DEFAULT 0
     )`)
 })
