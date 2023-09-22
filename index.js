@@ -27,8 +27,8 @@ console.log("JPCS Code Rush Backend Service")
 db.serialize(() => 
 {
     db.run(`CREATE TABLE IF NOT EXISTS players(
-        uuid TEXT PRIMARY KEY DEFAULT '',
-        name TEXT UNIQUE DEFAULT '',
+        uuid TEXT NOT NULL PRIMARY KEY CHECK (uuid <> ''),
+        name TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (name <> ''),
         top_wpm INTEGER DEFAULT 0,
         is_admin INTEGER DEFAULT 0
     )`)
@@ -71,7 +71,7 @@ app.post('/api/v2/player', (req, res) =>
     const { type, data } = req.body;
 
     console.log('API Call Type: ' + type);
-
+    
     if (type == 'register_player') 
     {
         if (!data.hasOwnProperty('uuid'))
@@ -111,13 +111,47 @@ app.post('/api/v2/player', (req, res) =>
             if (err) 
             {
                 console.error(`Error adding new player ${name}:`, err.message);
-                res.status(400).json(
-                { 
-                    error: 'Bad Request',
-                    message: err.message
-                })
+                if (err.message == 'SQLITE_CONSTRAINT: UNIQUE constraint failed: players.uuid')
+                {
+                    res.status(400).json(
+                    { 
+                        error: 'UUID Exists',
+                        message: err.message
+                    })
+                }
+                else if (err.message == "SQLITE_CONSTRAINT: UNIQUE constraint failed: players.name")
+                {
+                    res.status(400).json(
+                    { 
+                        error: 'Name Exists',
+                        message: err.message
+                    })
+                }
+                else if (err.message == "SQLITE_CONSTRAINT: CHECK constraint failed: uuid <> ''")
+                {
+                    res.status(400).json(
+                    { 
+                        error: 'UUID Empty',
+                        message: err.message
+                    })
+                }
+                else if (err.message == "SQLITE_CONSTRAINT: CHECK constraint failed: name <> ''")
+                {
+                    res.status(400).json(
+                    { 
+                        error: 'Name Empty',
+                        message: err.message
+                    })
+                }
+                else
+                {
+                    res.status(400).json(
+                    { 
+                        error: 'BAD Exists',
+                        message: err.message
+                    })
+                }
                 return
-
             } 
             else 
             {
