@@ -71,7 +71,7 @@ app.post('/api/v2/player', (req, res) =>
     const { type, data } = req.body;
 
     console.log('API Call Type: ' + type);
-    
+
     if (type == 'register_player') 
     {
         if (!data.hasOwnProperty('uuid'))
@@ -158,6 +158,48 @@ app.post('/api/v2/player', (req, res) =>
                 console.log(`New player ${name} added with row id ${this.lastID}!`)
                 res.status(200).json({ message: "OK" })
                 return
+            }
+        });
+    }
+    else if (type == 'player_data_request') 
+    {
+        if (!data.hasOwnProperty('uuid'))
+        {
+            res.status(400).json(
+            { 
+                error: 'Bad Request',
+                message: "No 'uuid' property in api request" 
+            })
+            return
+        }
+
+        const { uuid } = data;
+
+        const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?';
+        
+        db.all(query, [uuid], (err, rows) => 
+        {
+            if (err) 
+            {
+                console.error(`Error retrieving player data: ${err.message}`);
+                res.status(500).json({ error: 'Internal Server Error' })
+            } 
+            else 
+            {
+                if (rows.length > 0) 
+                {
+                    res.status(200).json({ data: rows })
+                } 
+                else 
+                {
+                    console.log('Player Not Found')
+                    res.status(400).json(
+                    { 
+                        error: 'Player Not Found',
+                        message: "Idk bro, player doesn't exist"
+                    })
+                    return
+                }
             }
         });
     }
