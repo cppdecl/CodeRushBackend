@@ -182,7 +182,7 @@ app.post('/api/v2/player', (req, res) =>
             if (err) 
             {
                 console.error(`Error retrieving player data: ${err.message}`);
-                res.status(500).json({ error: 'Internal Server Error' })
+                res.status(400).json({ error: 'Internal Server Error' })
             } 
             else 
             {
@@ -198,8 +198,25 @@ app.post('/api/v2/player', (req, res) =>
                         error: 'Player Not Found',
                         message: "Idk bro, player doesn't exist"
                     })
-                    return
+                    returnu
                 }
+            }
+        });
+    }
+    else if (type == 'request_all_player_data') 
+    {
+        const query = 'SELECT * FROM players';
+
+        db.all(query, (err, rows) => 
+        {
+            if (err) 
+            {
+                console.error(`Error retrieving player data: ${err.message}`);
+                res.status(400).json({ error: 'Internal Server Error' })
+            }
+            else 
+            {
+                res.status(200).json({ data: rows })
             }
         });
     }
