@@ -10,7 +10,7 @@
 */
 
 const express = require('express')
-const app = express();
+const app = express()
 
 const bodyParser = require('body-parser')
 app.use(bodyParser.json())
@@ -18,7 +18,7 @@ app.use(bodyParser.urlencoded({ extended: false }))
 
 const sqlite3 = require('sqlite3').verbose()
 const db = new sqlite3.Database('coderush.db')
-const readline = require('readline');
+const readline = require('readline')
 
 console.log("JPCS Code Rush Backend Service")
 
@@ -69,9 +69,9 @@ app.post('/api/v2/player', (req, res) =>
         return
     }
 
-    const { type, data } = req.body;
+    const { type, data } = req.body
 
-    console.log('API Call Type: ' + type);
+    console.log('API Call Type: ' + type)
 
     if (type == 'register_player') 
     {
@@ -95,7 +95,7 @@ app.post('/api/v2/player', (req, res) =>
             return
         }
 
-        const { uuid, name } = data;
+        const { uuid, name } = data
 
         if (name.length < 3)
         {
@@ -141,7 +141,7 @@ app.post('/api/v2/player', (req, res) =>
         {
             if (err) 
             {
-                console.error(`Error adding new player ${name}:`, err.message);
+                console.error(`Error adding new player ${name}:`, err.message)
                 if (err.message == 'SQLITE_CONSTRAINT: UNIQUE constraint failed: players.uuid')
                 {
                     res.status(400).json(
@@ -190,7 +190,7 @@ app.post('/api/v2/player', (req, res) =>
                 res.status(200).json({ message: "OK" })
                 return
             }
-        });
+        })
     }
     else if (type == 'player_data_request') 
     {
@@ -204,15 +204,15 @@ app.post('/api/v2/player', (req, res) =>
             return
         }
 
-        const { uuid } = data;
+        const { uuid } = data
 
-        const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?';
+        const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
         
         db.all(query, [uuid], (err, rows) => 
         {
             if (err) 
             {
-                console.error(`Error retrieving player data: ${err.message}`);
+                console.error(`Error retrieving player data: ${err.message}`)
                 res.status(400).json({ error: 'Internal Server Error' })
             } 
             else 
@@ -232,24 +232,24 @@ app.post('/api/v2/player', (req, res) =>
                     returnu
                 }
             }
-        });
+        })
     }
     else if (type == 'request_all_player_data') 
     {
-        const query = 'SELECT * FROM players';
+        const query = 'SELECT * FROM players'
 
         db.all(query, (err, rows) => 
         {
             if (err) 
             {
-                console.error(`Error retrieving player data: ${err.message}`);
+                console.error(`Error retrieving player data: ${err.message}`)
                 res.status(400).json({ error: 'Internal Server Error' })
             }
             else 
             {
                 res.status(200).json({ data: rows })
             }
-        });
+        })
     }
     else if (type == 'increment_player_game_count')
     {
@@ -265,21 +265,21 @@ app.post('/api/v2/player', (req, res) =>
 
         const query = 'UPDATE players SET total_games = total_games + 1 WHERE uuid = ?'
 
-        const { uuid } = data;
+        const { uuid } = data
 
         db.run(query, [uuid], function (err) 
         {
             if (err) 
             {
-                console.error(`Error updating total_games: ${err.message}`);
+                console.error(`Error updating total_games: ${err.message}`)
                 res.status(400).json({ error: 'Internal Server Error' })
             } 
             else 
             {
-                console.log(`Total games updated for player with UUID ${uuid}`);
+                console.log(`Total games updated for player with UUID ${uuid}`)
                 res.status(200).json({ message: "OK" })
             }
-        });
+        })
     }
     else if (type == 'update_player_top_wpm')
     {
@@ -303,22 +303,22 @@ app.post('/api/v2/player', (req, res) =>
             return
         }
 
-        const { uuid, wpm } = data;
+        const { uuid, wpm } = data
 
-        const querySelectTotalWPM = 'SELECT top_wpm FROM players WHERE uuid = ?';
+        const querySelectTotalWPM = 'SELECT top_wpm FROM players WHERE uuid = ?'
 
         db.get(querySelectTotalWPM, [uuid], function (err, row) 
         {
             if (err) 
             {
-                console.error(`Error retrieving top_wpm: ${err.message}`);
-                res.status(400).json({ error: 'Internal Server Error' });
-                return;
+                console.error(`Error retrieving top_wpm: ${err.message}`)
+                res.status(400).json({ error: 'Internal Server Error' })
+                return
             }
 
             if (row && row.top_wpm > wpm) 
             {
-                console.log(`The existing top_wpm (${row.top_wpm}) is higher than the incoming WPM (${wpm}). No update is performed.`);
+                console.log(`The existing top_wpm (${row.top_wpm}) is higher than the incoming WPM (${wpm}). No update is performed.`)
                 res.status(400).json(
                 { 
                     error: 'Bad Request',
@@ -327,27 +327,27 @@ app.post('/api/v2/player', (req, res) =>
             } 
             else 
             {
-                const queryUpdateTotalWPM = 'UPDATE players SET top_wpm = ? WHERE uuid = ?';
+                const queryUpdateTotalWPM = 'UPDATE players SET top_wpm = ? WHERE uuid = ?'
            
                 db.run(queryUpdateTotalWPM, [wpm, uuid], function (err) 
                 {
                     if (err) 
                     {
-                        console.error(`Error updating top_wpm: ${err.message}`);
-                        res.status(400).json({ error: 'Internal Server Error' });
+                        console.error(`Error updating top_wpm: ${err.message}`)
+                        res.status(400).json({ error: 'Internal Server Error' })
                     } 
                     else 
                     {
-                        console.log(`Top WPM updated for player with UUID ${uuid}`);
-                        res.status(200).json({ message: "OK" });
+                        console.log(`Top WPM updated for player with UUID ${uuid}`)
+                        res.status(200).json({ message: "OK" })
                     }
-                });
+                })
             }
-        });
+        })
     }
     else
     {
-        console.error(`Invalid Request Attempt`);
+        console.error(`Invalid Request Attempt`)
         res.status(400).json(
         { 
             error: 'Bad Request',
@@ -369,20 +369,21 @@ const server = app.listen(4000, function ()
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
-});
+})
 
 // Function to process user input
+
 function processInput(input) {
-  const [command, ...params] = input.split(' ');
+  const [command, ...params] = input.split(' ')
   
   switch (command.toLowerCase()) {
     case 'hello':
-        console.log('Hello!');
-        break;
+        console.log('Hello!')
+        break
     case 'add':
-        const sum = params.map(Number).reduce((acc, val) => acc + val, 0);
-        console.log('Sum:', sum);
-        break;
+        const sum = params.map(Number).reduce((acc, val) => acc + val, 0)
+        console.log('Sum:', sum)
+        break
     case 'deluser':
         if (params.length < 1)
             break
@@ -392,21 +393,21 @@ function processInput(input) {
         {
             if (err) 
             {
-                console.error(`Error deleting row: ${err.message}`);
+                console.error(`Error deleting row: ${err.message}`)
             } 
             else 
             {
-                console.log(`Row(s) deleted: ${this.changes}`);
+                console.log(`Row(s) deleted: ${this.changes}`)
             }
-        });
+        })
         break
     default:
-      console.log('Unknown command:', command);
+      console.log('Unknown command:', command)
   }
 
   // Ask for the next input
-  rl.question('', processInput);
+  rl.question('', processInput)
 }
 
 // Start by asking for the first input
-rl.question('', processInput);
+rl.question('', processInput)
