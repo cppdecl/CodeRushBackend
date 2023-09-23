@@ -178,7 +178,7 @@ app.post('/api/v2/player', (req, res) =>
                 {
                     res.status(400).json(
                     { 
-                        error: 'BAD Exists',
+                        error: 'Unknown Error',
                         message: err.message
                     })
                 }
@@ -229,7 +229,7 @@ app.post('/api/v2/player', (req, res) =>
                         error: 'Player Not Found',
                         message: "Idk bro, player doesn't exist"
                     })
-                    returnu
+                    return
                 }
             }
         })
@@ -351,7 +351,7 @@ app.post('/api/v2/player', (req, res) =>
         res.status(400).json(
         { 
             error: 'Bad Request',
-            message: 'Invalid'
+            message: 'Invalid API Request. Why?'
         })
     }
 }) 
