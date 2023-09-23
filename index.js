@@ -251,9 +251,9 @@ app.post('/api/v2/player', (req, res) =>
             }
         });
     }
-    else if (type == 'add_player_games')
+    else if (type == 'increment_player_game_count')
     {
-        if (!data.hasOwnProperty('total_wpm'))
+        if (!data.hasOwnProperty('uuid'))
         {
             res.status(400).json(
             { 
@@ -263,15 +263,87 @@ app.post('/api/v2/player', (req, res) =>
             return
         }
 
-        if (!data.hasOwnProperty('total_games'))
+        const query = 'UPDATE players SET total_games = total_games + 1 WHERE uuid = ?'
+
+        const { uuid } = data;
+
+        db.run(query, [uuid], function (err) 
+        {
+            if (err) 
+            {
+                console.error(`Error updating total_games: ${err.message}`);
+                res.status(400).json({ error: 'Internal Server Error' })
+            } 
+            else 
+            {
+                console.log(`Total games updated for player with UUID ${uuid}`);
+                res.status(200).json({ message: "OK" })
+            }
+        });
+    }
+    else if (type == 'update_player_top_wpm')
+    {
+        if (!data.hasOwnProperty('uuid'))
         {
             res.status(400).json(
             { 
                 error: 'Bad Request',
-                message: "No 'name' property in api request" 
+                message: "No 'uuid' property in api request" 
             })
             return
         }
+
+        if (!data.hasOwnProperty('wpm'))
+        {
+            res.status(400).json(
+            { 
+                error: 'Bad Request',
+                message: "No 'wpm' property in api request" 
+            })
+            return
+        }
+
+        const { uuid, wpm } = data;
+
+        const querySelectTotalWPM = 'SELECT top_wpm FROM players WHERE uuid = ?';
+
+        db.get(querySelectTotalWPM, [uuid], function (err, row) 
+        {
+            if (err) 
+            {
+                console.error(`Error retrieving top_wpm: ${err.message}`);
+                res.status(400).json({ error: 'Internal Server Error' });
+                return;
+            }
+
+            if (row && row.top_wpm > wpm) 
+            {
+                console.log(`The existing top_wpm (${row.top_wpm}) is higher than the incoming WPM (${wpm}). No update is performed.`);
+                res.status(400).json(
+                { 
+                    error: 'Bad Request',
+                    message: "Incoming WPM is higher than current Top WPM in api request" 
+                })
+            } 
+            else 
+            {
+                const queryUpdateTotalWPM = 'UPDATE players SET top_wpm = ? WHERE uuid = ?';
+           
+                db.run(queryUpdateTotalWPM, [wpm, uuid], function (err) 
+                {
+                    if (err) 
+                    {
+                        console.error(`Error updating top_wpm: ${err.message}`);
+                        res.status(400).json({ error: 'Internal Server Error' });
+                    } 
+                    else 
+                    {
+                        console.log(`Top WPM updated for player with UUID ${uuid}`);
+                        res.status(200).json({ message: "OK" });
+                    }
+                });
+            }
+        });
     }
     else
     {
