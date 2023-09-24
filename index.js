@@ -294,9 +294,15 @@ ioServer.on('connection', async (socket) => {
 
     socket.on('disconnect', () => {
         const raceId = userRaceMap[userId];
-        if (raceId) {
+        const r = roomManager.getRaceById(raceId);
+        if (r) {
             roomManager.leaveRace(raceId, userId);
             userRaceMap[userId] = null;
+
+            ioServer.to(raceId).emit('member_left', {
+                member: userId,
+                owner: r.owner
+            });
         }
     });
 
