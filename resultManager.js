@@ -1,7 +1,7 @@
  class ResultManager {
-    getTimeMS(race, player) {
+    getTimeMS(race, racePlayer) {
         const firstTimeStampMS = race['startTime'];
-        const keyStrokes = race['players'][player]['keyStrokes'].filter((e) => e['correct']);
+        const keyStrokes = racePlayer.validKeyStrokes();
         const lastTimeStampMS = keyStrokes[keyStrokes.length - 1].timestamp;
         return lastTimeStampMS - firstTimeStampMS;
     }
@@ -14,30 +14,30 @@
         return Math.floor(cpm);
     }
 
-    getMistakesCount(keyStrokes) {
-        return keyStrokes.filter((e) => !e['correct']).length;
+    getMistakesCount(racePlayer) {
+        return racePlayer.incorrectKeyStrokes().length;
     }
 
-    getAccuracy(race, playerId) {
-        const incorrectKeyStrokes = this.getMistakesCount(race.players[playerId].keyStrokes);
-        const validKeyStrokes = race.players[playerId].keyStrokes.filter((e) => e['correct']).length;
+    getAccuracy(race, racePlayer) {
+        const incorrectKeyStrokes = this.getMistakesCount(racePlayer);
+        const validKeyStrokes = racePlayer.validKeyStrokes().length;
         const totalKeySrokes = validKeyStrokes + incorrectKeyStrokes;
         return Math.floor((validKeyStrokes / totalKeySrokes) * 100);
     }
 
-    getResult(challenge, race, raceId, playerObject) {
-        const timeMS = this.getTimeMS(race, playerObject.uuid);
+    getResult(challenge, race, raceId, racePlayer) {
+        const timeMS = this.getTimeMS(race, racePlayer);
         return {
             raceId: raceId,
             user: {
-                id: playerObject.uuid,
-                username: playerObject.name,
+                id: racePlayer.id,
+                username: racePlayer.username,
             },
             timeMS: timeMS,
             challenge: challenge,
             cpm: this.getCPM(challenge, timeMS),
-            mistakes: this.getMistakesCount(race.players[playerObject.uuid].keyStrokes),
-            accuracy: this.getAccuracy(race, playerObject.uuid)
+            mistakes: this.getMistakesCount(racePlayer),
+            accuracy: this.getAccuracy(race, racePlayer)
         };
     }
 }

@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 4000;
 const express = require("express");
 const app = express();
 
-const server = app.listen(PORT, () => {});
+const server = app.listen(PORT, () => { });
 const cors = require("cors")
 
 const ioServer = require("socket.io")(server, {
@@ -39,6 +39,7 @@ const readline = require('readline');
 const generateRandomName = require("./randomNameGenerator");
 const { ResultManager } = require("./resultManager");
 const { RoomManager } = require("./roomManager");
+const { calculateLiterals } = require("./literalUtils");
 
 
 // map of user id to room id
@@ -313,11 +314,10 @@ ioServer.on('connection', async (socket) => {
             console.error("Room " + raceId + " not found");
             return;
         }
-
+        room.literals = calculateLiterals(roomChallengeMap[raceId].content);
         userRaceMap[userId] = raceId;
-
         socket.join(raceId);
-        roomManager.joinRace(raceId, userId);
+        roomManager.joinRace(raceId, player);
 
         ioServer.to(raceId).emit('member_joined', {
             id: userId,
@@ -335,6 +335,7 @@ ioServer.on('connection', async (socket) => {
     socket.on('play', (data) => {
         console.log("Play: " + userId);
 
+        // TODO: add challenge manager which returns random snippets
         const challenge = {
             project: {
                 fullName: 'JPCS Cart',
@@ -356,8 +357,8 @@ ioServer.on('connection', async (socket) => {
         if (!room) {
             console.error("Internal server error while creating room.");
         }
-
-        roomManager.joinRace(roomId, userId);
+        room.literals = calculateLiterals(challenge.content);
+        roomManager.joinRace(roomId, player);
 
         ioServer.to(roomId).emit('race_joined', {
             ...room,
@@ -396,22 +397,35 @@ ioServer.on('connection', async (socket) => {
             return;
         }
 
-        const keyStrokes = room.players[userId].keyStrokes;
-        if (keyStrokes.length == 0) {
-            room.startTime = keyStroke.timestamp;
+        const racePlayer = room.players[userId];
+        if (!racePlayer) {
+            console.error(`Player ${userId} not found in room ${roomId}`)
+            return;
         }
 
-        keyStrokes.push(keyStroke);
-
-        if (keyStroke["correct"]) {
-            await updateProgress(userId, socket);
+        if (racePlayer.hasNotStartedTyping()) {
+            room.startTime = new Date().getTime();
         }
 
-        const progress = room.players[userId].progress;
+        racePlayer.addKeyStroke(keyStroke);
+        if (keyStroke.correct) {
+            racePlayer.progress = await calculateProgress(racePlayer);
+            console.log(racePlayer.progress);
+            const code = roomChallengeMap[roomId].content;
+            racePlayer.updateLiteral(code, keyStroke);
 
+            ioServer.to(roomId).emit('progress_updated', {
+                id: userId,
+                username: racePlayer.username,
+                progress: racePlayer.progress,
+                recentlyTypedLiteral: racePlayer.getValidInput(),
+            });
 
-        if (progress == 100) {
-            const result = resultManager.getResult(roomChallengeMap[roomId].content, room, roomId, await getPlayer(userId));
+        }
+
+        
+        if (racePlayer.hasCompletedRace()) {
+            const result = resultManager.getResult(roomChallengeMap[roomId].content, room, roomId, racePlayer);
             ioServer.to(roomId).emit('race_completed', result);
         }
 
@@ -428,43 +442,19 @@ ioServer.on('connection', async (socket) => {
 
 });
 
-async function updateProgress(userId, socket) {
-    const roomId = userRaceMap[userId];
-
-    const player = await getPlayer(userId);
-    if (player == null) {
-        console.error("Player " + userId + " not found");
-        return;
-    }
-
-    const room = roomManager.getRaceById(roomId);
+async function calculateProgress(racePlayer) {
+    const roomId = userRaceMap[racePlayer.id];
+    const room = roomManager.getRaceById(racePlayer.raceId);
     if (room == null) {
-        console.error(`Unable to upate progres for ${userId}`);
+        console.error(`Unable to upate progress for ${racePlayer.id}`);
         return;
     }
     const challengeContent = roomChallengeMap[roomId];
-
-
-    const keyStrokes = room.players[userId].keyStrokes;
-
-    const currentInput = keyStrokes.filter((keyStroke) => {
-        return keyStroke["correct"] || false;
-    }).map((e) => e['key']).join('');
-
+    const currentInput = racePlayer.getValidInput();
     const code = challengeContent.content;
-    const progress = Math.floor(
+    return Math.floor(
         (currentInput.length / code.length) * 100,
     );
-
-    room.players[userId].progress = progress;
-    
-    ioServer.to(roomId).emit('progress_updated', {
-        id: userId,
-        username: player.name,
-        progress: progress,
-        recentlyTypedLiteral: currentInput,
-    });
-
 }
 
 

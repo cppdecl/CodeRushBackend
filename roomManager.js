@@ -1,3 +1,5 @@
+const { Player } = require("./player");
+
 // TODO: probably better to use hash map ??
 class RoomManager {
 
@@ -23,15 +25,11 @@ class RoomManager {
         return this.races.find((race) => race.id === raceId);
     }
 
-    joinRace(raceId, userId) {
+    joinRace(raceId, user) {
         const race = this.getRaceById(raceId);
         if (race) {
-            race.players[userId] = {
-                keyStrokes: [],
-                progress: 0
-            };
-
-            console.log(userId + " joined room " + raceId);
+            race.players[user.uuid] = Player.fromUser(raceId, user, race.literals);
+            console.log(user.name + " joined room " + raceId);
             return true;
         }
         return false; // Race not found
