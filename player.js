@@ -86,7 +86,7 @@ class Player {
         return this.typedKeyStrokes.length === 0;
     }
 
-    hasCompletedRace() {
+    hasCompleted () {
         return this.progress === 100;
     }
 
