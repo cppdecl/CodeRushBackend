@@ -34,12 +34,8 @@ const db = new sqlite3.Database('coderush.db')
 const readline = require('readline');
 const generateRandomName = require("./randomNameGenerator");
 const { ResultManager } = require("./resultManager");
+const { RoomManager } = require("./roomManager");
 
-// map of session id to player id
-const sessionMap = {};
-
-// map of room id to race session
-const raceMap = {};
 
 // map of user id to room id
 const userRaceMap = {};
@@ -48,6 +44,7 @@ const userRaceMap = {};
 const roomChallengeMap = {};
 
 const resultManager = new ResultManager();
+const roomManager = new RoomManager();
 
 
 console.log("JPCS Code Rush Backend Service")
@@ -221,7 +218,6 @@ function getPlayer(uuid) {
 
     const all = util.promisify(db.all.bind(db));
     return all(query, [uuid]).then((rows, err) => {
-        console.log(err, rows);
         if (err) {
             console.error(`Error retrieving player data: ${JSON.stringify(err)}`)
             return null;
@@ -241,8 +237,6 @@ async function registerPlayer(uuid, name) {
     if (name == null) {
         name = generateRandomName();
     }
-
-
 
     if (name.length < 3) {
         console.err("Name is too short");
@@ -303,12 +297,12 @@ io.on('connection', async (socket) => {
 
     console.log(player.name + " connected.");
 
-    sessionMap[sessionId] = userId;
-
     socket.on('disconnect', () => {
-        sessionMap[sessionId] = null;
-        raceMap[userId] = null;
-        userRaceMap[userId] = null;
+        const raceId = userRaceMap[userId];
+        if (raceId) {
+            roomManager.leaveRace(raceId, userId);
+            userRaceMap[userId] = null;
+        }
     });
 
 
@@ -317,9 +311,25 @@ io.on('connection', async (socket) => {
     });
 
 
+    socket.on('join', raceId => {
+        console.log('join: ' + raceId);
+        
+        const room = roomManager.getRaceById(raceId);
+        if (!room) {
+            console.error("Room " + raceId + " not found");
+            return;
+        }
+
+
+        roomManager.joinRace(raceId, userId);
+        io.sockets.emit('race_joined', {
+            ...room,
+            challenge: roomChallengeMap[raceId],
+        });
+    });
+
     // user started playing
     socket.on('play', (data) => {
-        const userId = sessionMap[sessionId];
         console.log("Play: " + userId);
 
         const challenge = {
@@ -337,33 +347,36 @@ io.on('connection', async (socket) => {
 
         roomChallengeMap[roomId] = challenge;
         userRaceMap[userId] = roomId;
-        raceMap[roomId] = {
-            state: 'started',
-            players: {
-                [userId]: {
-                    keyStrokes: [],
-                    progress: 0
-                }
-            },
-        };
 
-        socket.emit('challenge_selected', challenge);
+        const room = roomManager.createRace(roomId, userId);
+        if (!room) {
+            console.error("Internal server error while creating room.");
+        }
+
+        
+        roomManager.joinRace(roomId, userId);
+
+        io.sockets.emit('race_joined', {
+            ...room,
+            challenge: challenge,
+        });
     });
 
     // called on multiplayer only
     socket.on('start_race', (data) => {
         console.log("Race Started");
+
+        const raceId = userRaceMap[userId];
+        roomManager.startRace(raceId);
+        io.sockets.emit('race_started', new Date().getTime())
     });
 
-    socket.on('key_stroke', (keyStroke) => {
+    socket.on('key_stroke', async (keyStroke) => {
         keyStroke["timestamp"] = Date.now();
 
-
-
-        var userId = sessionMap[sessionId];
         var roomId = userRaceMap[userId];
 
-        var room = raceMap[roomId];
+        var room = roomManager.getRaceById(roomId);
         if (room == null) {
             console.error("Room " + roomId + " not found")
             return;
@@ -371,18 +384,20 @@ io.on('connection', async (socket) => {
 
         const keyStrokes = room.players[userId].keyStrokes;
         if (keyStrokes.length == 0) {
-            raceMap[roomId].startTime = keyStroke.timestamp;
+            room.startTime = keyStroke.timestamp;
         }
 
         keyStrokes.push(keyStroke);
 
         if (keyStroke["correct"]) {
-            updateProgress(userId);
+            await updateProgress(userId, socket);
         }
 
         const progress = room.players[userId].progress;
         if (progress == 100) {
             const result = resultManager.getResult(roomChallengeMap[roomId].content, room, roomId, userId);
+
+            roomManager.finishRace(roomId);
             socket.emit('race_completed', result);
         }
     });
@@ -390,10 +405,24 @@ io.on('connection', async (socket) => {
 
 });
 
-function updateProgress(userId) {
+async function updateProgress(userId, socket) {
     const roomId = userRaceMap[userId];
+
+    const player = await getPlayer(userId);
+    if (player == null) {
+        console.error("Player " + userId + " not found");
+        return;
+    }
+
+    const room = roomManager.getRaceById(roomId);
+    if (room == null) {
+        console.error(`Unable to upate progres for ${userId}`);
+        return;
+    }
     const challengeContent = roomChallengeMap[roomId];
-    const keyStrokes = raceMap[roomId].players[userId].keyStrokes;
+
+
+    const keyStrokes = room.players[userId].keyStrokes;
 
     const currentInput = keyStrokes.filter((keyStroke) => {
         return keyStroke["correct"] || false;
@@ -404,7 +433,14 @@ function updateProgress(userId) {
         (currentInput.length / code.length) * 100,
     );
 
-    raceMap[roomId].players[userId].progress = progress;
+    room.players[userId].progress = progress;
+
+    io.sockets.emit('progress_updated', {
+        id: userId,
+        username: player.name,
+        progress: progress,
+        recentlyTypedLiteral: currentInput,
+    });
 
 }
 
