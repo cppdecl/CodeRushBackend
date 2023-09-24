@@ -8,24 +8,28 @@
           folder structure to begin with. 
     Author: Coffee Delulu of C1A 2023
 */
+const PORT = process.env.PORT || 4000;
 
 const express = require("express");
 const app = express();
-const http = require('http');
-const httpServer = http.Server(app);
-const { Server } = require("socket.io");
-const util = require('util');
-const io = new Server(httpServer, {
+
+const server = app.listen(PORT, () => {});
+const cors = require("cors")
+
+const ioServer = require("socket.io")(server, {
     cors: {
-        origin: "http://localhost:3001",
+        origin: ["http://localhost:3001", "https://5tszpsmv-3001.asse.devtunnels.ms/", "https://needed-wrench-production.up.railway.app"],
         methods: ["GET", "POST"],
         allowedHeaders: ["my-custom-header"],
         credentials: true
     }
 });
+const util = require('util');
+
 
 const bodyParser = require('body-parser')
 app.use(bodyParser.json())
+app.use(cors({ origin: ["https://5tszpsmv-3001.asse.devtunnels.ms/"] }));
 app.use(bodyParser.urlencoded({ extended: false }));
 
 
@@ -213,8 +217,8 @@ app.post('/api/v2/player', (req, res) => {
     }
 });
 
+const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
 function getPlayer(uuid) {
-    const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
 
     const all = util.promisify(db.all.bind(db));
     return all(query, [uuid]).then((rows, err) => {
@@ -271,20 +275,10 @@ async function registerPlayer(uuid, name) {
 
 }
 
-// Listening Worker
-
-// const server = app.listen(4000, function () {
-//     let host = server.address().address
-//     let port = server.address().port
-// })
-
-httpServer.listen(4000, () => {
-    console.log('listening on *:4000');
-});
 
 
 // events
-io.on('connection', async (socket) => {
+ioServer.on('connection', async (socket) => {
     const userId = socket.request._query['userId'];
     const sessionId = socket.id;
 
@@ -313,16 +307,23 @@ io.on('connection', async (socket) => {
 
     socket.on('join', raceId => {
         console.log('join: ' + raceId);
-        
+
         const room = roomManager.getRaceById(raceId);
         if (!room) {
             console.error("Room " + raceId + " not found");
             return;
         }
 
-
+        socket.join(raceId);
         roomManager.joinRace(raceId, userId);
-        io.sockets.emit('race_joined', {
+
+        ioServer.to(raceId).emit('member_joined', {
+            id: userId,
+            username: player.name,
+            progress: 0,
+            recentlyTypedLiteral: '',
+        });
+        socket.emit('race_joined', {
             ...room,
             challenge: roomChallengeMap[raceId],
         });
@@ -339,7 +340,7 @@ io.on('connection', async (socket) => {
                 licenseName: 'MIT',
             },
             url: '',
-            content: 'console.log("Hello World")',
+            content: "i'm sorry baby, i love you so much ^__^",
             path: 'index.js',
         }
 
@@ -353,10 +354,10 @@ io.on('connection', async (socket) => {
             console.error("Internal server error while creating room.");
         }
 
-        
         roomManager.joinRace(roomId, userId);
+        socket.join(roomId);
 
-        io.sockets.emit('race_joined', {
+        ioServer.to(roomId).emit('race_joined', {
             ...room,
             challenge: challenge,
         });
@@ -368,7 +369,18 @@ io.on('connection', async (socket) => {
 
         const raceId = userRaceMap[userId];
         roomManager.startRace(raceId);
-        io.sockets.emit('race_started', new Date().getTime())
+
+        let count = 5;
+        const interval = setInterval(() => {
+            ioServer.to(raceId).emit('countdown', count);
+            count--;
+            if (count === 0) {
+                clearInterval(interval);
+                ioServer.to(raceId).emit('countdown', null);
+
+                ioServer.to(raceId).emit('race_started', new Date().getTime());
+            }
+        }, 1000);
     });
 
     socket.on('key_stroke', async (keyStroke) => {
@@ -394,11 +406,20 @@ io.on('connection', async (socket) => {
         }
 
         const progress = room.players[userId].progress;
-        if (progress == 100) {
-            const result = resultManager.getResult(roomChallengeMap[roomId].content, room, roomId, userId);
 
+
+        if (progress == 100) {
+            const result = resultManager.getResult(roomChallengeMap[roomId].content, room, roomId, await getPlayer(userId));
+            ioServer.to(roomId).emit('race_completed', result);
+        }
+
+        // only finish race if all players are done
+        const participants = roomManager.getParticipants(roomId);
+        const allDone = Object.keys(participants).map((userId) => {
+            return participants[userId].progress;
+        }).filter((progress) => progress < 100).length == 0;
+        if (allDone) {
             roomManager.finishRace(roomId);
-            socket.emit('race_completed', result);
         }
     });
 
@@ -435,7 +456,7 @@ async function updateProgress(userId, socket) {
 
     room.players[userId].progress = progress;
 
-    io.sockets.emit('progress_updated', {
+    ioServer.to(roomId).emit('progress_updated', {
         id: userId,
         username: player.name,
         progress: progress,

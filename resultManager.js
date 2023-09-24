@@ -18,25 +18,26 @@
         return keyStrokes.filter((e) => !e['correct']).length;
     }
 
-    getAccuracy(race, player) {
-        const incorrectKeyStrokes = this.getMistakesCount(race.players[player].keyStrokes);
-        const validKeyStrokes = race.players[player].keyStrokes.filter((e) => e['correct']).length;
+    getAccuracy(race, playerId) {
+        const incorrectKeyStrokes = this.getMistakesCount(race.players[playerId].keyStrokes);
+        const validKeyStrokes = race.players[playerId].keyStrokes.filter((e) => e['correct']).length;
         const totalKeySrokes = validKeyStrokes + incorrectKeyStrokes;
         return Math.floor((validKeyStrokes / totalKeySrokes) * 100);
     }
 
-    getResult(challenge, race, raceId, player) {
-        const timeMS = this.getTimeMS(race, player);
+    getResult(challenge, race, raceId, playerObject) {
+        const timeMS = this.getTimeMS(race, playerObject.uuid);
         return {
             raceId: raceId,
             user: {
-                id: player
+                id: playerObject.uuid,
+                username: playerObject.name,
             },
             timeMS: timeMS,
             challenge: challenge,
             cpm: this.getCPM(challenge, timeMS),
-            mistakes: this.getMistakesCount(race.players[player].keyStrokes),
-            accuracy: this.getAccuracy(race, player)
+            mistakes: this.getMistakesCount(race.players[playerObject.uuid].keyStrokes),
+            accuracy: this.getAccuracy(race, playerObject.uuid)
         };
     }
 }
