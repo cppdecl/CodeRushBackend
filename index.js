@@ -314,6 +314,8 @@ ioServer.on('connection', async (socket) => {
             return;
         }
 
+        userRaceMap[userId] = raceId;
+
         socket.join(raceId);
         roomManager.joinRace(raceId, userId);
 
@@ -340,11 +342,12 @@ ioServer.on('connection', async (socket) => {
                 licenseName: 'MIT',
             },
             url: '',
-            content: "i'm sorry baby, i love you so much ^__^",
+            content: 'console.log("Hello World!");',
             path: 'index.js',
         }
 
         var roomId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        socket.join(roomId);
 
         roomChallengeMap[roomId] = challenge;
         userRaceMap[userId] = roomId;
@@ -355,7 +358,6 @@ ioServer.on('connection', async (socket) => {
         }
 
         roomManager.joinRace(roomId, userId);
-        socket.join(roomId);
 
         ioServer.to(roomId).emit('race_joined', {
             ...room,
@@ -455,7 +457,7 @@ async function updateProgress(userId, socket) {
     );
 
     room.players[userId].progress = progress;
-
+    
     ioServer.to(roomId).emit('progress_updated', {
         id: userId,
         username: player.name,
