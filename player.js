@@ -91,7 +91,7 @@ class Player {
     }
 
     static fromUser(raceId, user, literals) {
-        const player = new Player(user.uuid, user.username, literals[0]);
+        const player = new Player(user.uuid, user.name, literals[0]);
         player.progress = 0;
         player.literals = literals;
         player.literalOffset = 0;

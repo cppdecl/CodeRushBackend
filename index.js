@@ -331,21 +331,12 @@ ioServer.on('connection', async (socket) => {
         });
     });
 
+
     // user started playing
     socket.on('play', (data) => {
         console.log("Play: " + userId);
 
-        // TODO: add challenge manager which returns random snippets
-        const challenge = {
-            project: {
-                fullName: 'JPCS Cart',
-                language: 'javascript',
-                licenseName: 'MIT',
-            },
-            url: '',
-            content: 'console.log("Hello World!");',
-            path: 'index.js',
-        }
+        const challenge = getChallenge();
 
         var roomId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         socket.join(roomId);
@@ -364,6 +355,33 @@ ioServer.on('connection', async (socket) => {
             ...room,
             challenge: challenge,
         });
+    });
+
+    socket.on('refresh_challenge', (data) => {
+        const raceId = userRaceMap[userId];
+        const room = roomManager.getRaceById(raceId);
+        if (room.owner !== userId) {
+            return;
+        }
+
+        const challenge = getChallenge();
+        const literals = calculateLiterals(challenge.content);
+
+        room.challenge = challenge;
+        room.literals = literals;
+
+        roomChallengeMap[raceId] = challenge;
+        userRaceMap[userId] = raceId;
+
+        Object.values(room.players).forEach((player) => {
+            player.reset(literals);
+        });
+
+
+        ioServer.to(raceId).emit('race_joined', {
+            ...room,
+        });
+        ioServer.to(raceId).emit('challenge_selected', room.challenge);
     });
 
     // called on multiplayer only
@@ -410,21 +428,22 @@ ioServer.on('connection', async (socket) => {
         racePlayer.addKeyStroke(keyStroke);
         if (keyStroke.correct) {
             racePlayer.progress = await calculateProgress(racePlayer);
-            console.log(racePlayer.progress);
             const code = roomChallengeMap[roomId].content;
             racePlayer.updateLiteral(code, keyStroke);
 
-            ioServer.to(roomId).emit('progress_updated', {
-                id: userId,
+
+            const dto = {
+                id: racePlayer.id,
                 username: racePlayer.username,
                 progress: racePlayer.progress,
-                recentlyTypedLiteral: racePlayer.getValidInput(),
-            });
-
+                recentlyTypedLiteral: racePlayer.recentlyTypedLiteral,
+            };
+            console.log(dto);
+            ioServer.to(roomId).emit('progress_updated', dto);
         }
 
-        
-        if (racePlayer.hasCompletedRace()) {
+
+        if (racePlayer.hasCompleted()) {
             const result = resultManager.getResult(roomChallengeMap[roomId].content, room, roomId, racePlayer);
             ioServer.to(roomId).emit('race_completed', result);
         }
@@ -441,6 +460,21 @@ ioServer.on('connection', async (socket) => {
 
 
 });
+
+function getChallenge() {
+    // TODO: add challenge manager which returns random snippets
+    const challenge = {
+        project: {
+            fullName: 'JPCS Cart',
+            language: 'javascript',
+            licenseName: 'MIT',
+        },
+        url: '',
+        content: 'console.log("Hello World!");',
+        path: 'index.js',
+    }
+    return challenge;
+}
 
 async function calculateProgress(racePlayer) {
     const roomId = userRaceMap[racePlayer.id];
