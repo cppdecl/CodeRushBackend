@@ -1,19 +1,13 @@
+const { javascript_snippets } = require('./snippets/javascript-snippets');
+
 class ChallengeManager {
 
     getRandomChallenge() {
-        const challenge = {
-            project: {
-                fullName: 'JPCS Cart',
-                language: 'javascript',
-                licenseName: 'MIT',
-            },
-            url: '',
-            content: 'console.log("Hello World!");',
-            path: 'index.js',
-        }
+        const length = javascript_snippets.length;
+        return javascript_snippets[Math.floor(Math.random() * length)];
     }
 }
 
-export default {
+module.exports= {
     ChallengeManager
 }

@@ -40,7 +40,7 @@ const generateRandomName = require("./randomNameGenerator");
 const { ResultManager } = require("./resultManager");
 const { RoomManager } = require("./roomManager");
 const { calculateLiterals } = require("./literalUtils");
-const { ChallengeManager } = require("./challengeManager").default;
+const { ChallengeManager } = require("./challengeManager");
 
 // map of user id to room id
 const userRaceMap = {};
