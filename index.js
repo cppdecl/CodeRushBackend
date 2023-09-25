@@ -71,9 +71,9 @@ db.serialize(() => {
 app.get('/', (req, res) => {
     console.log(req.method + ' Request From ' + req.hostname + ' > ' + req.path)
     res.json({
-            message: 'CodeRush Api Works :)',
-            from: 'Coffee'
-        })
+        message: 'CodeRush Api Works :)',
+        from: 'Coffee'
+    })
 })
 
 const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
@@ -98,15 +98,15 @@ function getPlayer(uuid) {
 function genRoomID(length) {
     const alphabet = 'abcdefghijklmnopqrstuvwxyz';
     let result = '';
-  
+
     while (result.length < length) {
-      const randomIndex = Math.floor(Math.random() * alphabet.length);
-      const randomChar = alphabet[randomIndex];
-      if (!result.includes(randomChar)) {
-        result += randomChar;
-      }
+        const randomIndex = Math.floor(Math.random() * alphabet.length);
+        const randomChar = alphabet[randomIndex];
+        if (!result.includes(randomChar)) {
+            result += randomChar;
+        }
     }
-  
+
     return result;
 }
 
@@ -228,6 +228,7 @@ ioServer.on('connection', async (socket) => {
             console.error("Internal server error while creating room.");
         }
         room.literals = calculateLiterals(challenge.content);
+
         roomManager.joinRace(roomId, player);
 
         ioServer.to(roomId).emit('race_joined', {
@@ -317,7 +318,6 @@ ioServer.on('connection', async (socket) => {
                 progress: racePlayer.progress,
                 recentlyTypedLiteral: racePlayer.recentlyTypedLiteral,
             };
-            console.log(dto);
             ioServer.to(roomId).emit('progress_updated', dto);
         }
 
@@ -350,10 +350,16 @@ async function calculateProgress(racePlayer) {
         return;
     }
     const challengeContent = roomChallengeMap[roomId];
+
     const currentInput = racePlayer.getValidInput();
-    const code = challengeContent.content;
+
+    const strippedCode = challengeContent.content
+        .split('\n')
+        .map((subText) => subText.trimStart())
+        .join('\n');
+
     return Math.floor(
-        (currentInput.length / code.length) * 100,
+        (currentInput.length / strippedCode.length) * 100,
     );
 }
 
