@@ -76,6 +76,18 @@ app.get('/', (req, res) => {
     })
 })
 
+function changePlayerUsername(uuid, username) {
+    const run = util.promisify(db.run.bind(db));
+    run(`UPDATE players SET name = ? WHERE uuid = ?`, [username, uuid], function (err) {
+        if (err) {
+            console.error(`Error changing username: ${err.message}`)
+        }
+        else {
+            console.log(`Username changed: ${this.changes}`)
+        }
+    })
+}
+
 const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
 function getPlayer(uuid) {
 
@@ -162,6 +174,10 @@ ioServer.on('connection', async (socket) => {
     }
 
     console.log(player.name + " connected.");
+
+    socket.on('change_username', (username) => {
+        changePlayerUsername(userId, username);
+    });
 
     socket.on('disconnect', () => {
         const raceId = userRaceMap[userId];
