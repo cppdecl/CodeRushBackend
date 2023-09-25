@@ -59,9 +59,6 @@ class RoomManager {
         if (race) {
             // remove userId from race players
             delete race.players[userId]
-            console.log("User " + userId + " left the room.");
-
-            console.log(race.players);
 
             // delete race if players are empty
             const players = Object.keys(race.players);
