@@ -165,14 +165,14 @@ ioServer.on('connection', async (socket) => {
 
     socket.on('disconnect', () => {
         const raceId = userRaceMap[userId];
-        const r = roomManager.getRaceById(raceId);
-        if (r) {
+        const room = roomManager.getRaceById(raceId);
+        if (room) {
             roomManager.leaveRace(raceId, userId);
             userRaceMap[userId] = null;
 
             ioServer.to(raceId).emit('member_left', {
                 member: userId,
-                owner: r.owner
+                owner: room.owner
             });
         }
     });

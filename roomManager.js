@@ -58,8 +58,26 @@ class RoomManager {
         const race = this.getRaceById(raceId);
         if (race) {
             // remove userId from race players
-            race.players[userId] = null;
+            delete race.players[userId]
             console.log("User " + userId + " left the room.");
+
+            console.log(race.players);
+
+            // delete race if players are empty
+            const players = Object.keys(race.players);
+            if (players.length == 0) {
+                console.log("Deleting race " + race.id + " reason: no user left.");
+                this.removeRace(raceId);
+            } else {
+                const ownerLeft = race.owner === userId;
+                if (ownerLeft) {
+                    const otherPlayer = players.find((player) => player != userId);
+                    race.owner = otherPlayer;
+
+                    console.log("Owner " + userId + " left. New owner: " + race.owner);
+                }
+            }
+
         }
     }
 
@@ -68,6 +86,13 @@ class RoomManager {
         if (race) {
             console.log(`${raceId} finished.`);
             race.state = "finished";
+        }
+    }
+
+    removeRace(raceId) {
+        const index = this.races.findIndex((race) => race.id == raceId);
+        if (index != -1) {
+            this.races.splice(index, 1);
         }
     }
 }
