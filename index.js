@@ -40,6 +40,7 @@ const generateRandomName = require("./randomNameGenerator");
 const { ResultManager } = require("./resultManager");
 const { RoomManager } = require("./roomManager");
 const { calculateLiterals } = require("./literalUtils");
+const { ChallengeManager } = require("./challengeManager").default;
 
 
 // map of user id to room id
@@ -50,6 +51,7 @@ const roomChallengeMap = {};
 
 const resultManager = new ResultManager();
 const roomManager = new RoomManager();
+const challengeManager = new ChallengeManager();
 
 
 console.log("JPCS Code Rush Backend Service")
@@ -468,18 +470,7 @@ ioServer.on('connection', async (socket) => {
 });
 
 function getChallenge() {
-    // TODO: add challenge manager which returns random snippets
-    const challenge = {
-        project: {
-            fullName: 'JPCS Cart',
-            language: 'javascript',
-            licenseName: 'MIT',
-        },
-        url: '',
-        content: 'console.log("Hello World!");',
-        path: 'index.js',
-    }
-    return challenge;
+    return challengeManager.getRandomChallenge();
 }
 
 async function calculateProgress(racePlayer) {
