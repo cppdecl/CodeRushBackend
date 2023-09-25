@@ -6,7 +6,7 @@
           such a light game doesn't really
           require that much complex file and
           folder structure to begin with. 
-    Author: Coffee Delulu of C1A 2023
+    Author: Coffee Delulu & Tyron Scott
 */
 const PORT = process.env.PORT || 4000;
 
@@ -24,8 +24,8 @@ const ioServer = require("socket.io")(server, {
         credentials: true
     }
 });
-const util = require('util');
 
+const util = require('util');
 
 const bodyParser = require('body-parser')
 app.use(bodyParser.json())
@@ -42,7 +42,6 @@ const { RoomManager } = require("./roomManager");
 const { calculateLiterals } = require("./literalUtils");
 const { ChallengeManager } = require("./challengeManager").default;
 
-
 // map of user id to room id
 const userRaceMap = {};
 
@@ -52,7 +51,6 @@ const roomChallengeMap = {};
 const resultManager = new ResultManager();
 const roomManager = new RoomManager();
 const challengeManager = new ChallengeManager();
-
 
 console.log("JPCS Code Rush Backend Service")
 
@@ -72,153 +70,11 @@ db.serialize(() => {
 
 app.get('/', (req, res) => {
     console.log(req.method + ' Request From ' + req.hostname + ' > ' + req.path)
-    res.json(
-        {
+    res.json({
             message: 'CodeRush Api Works :)',
             from: 'Coffee'
         })
 })
-
-app.post('/api/v2/player', (req, res) => {
-    if (!req.body.hasOwnProperty('type')) {
-        res.status(400).json(
-            {
-                error: 'Bad Request',
-                message: "No 'type' property in api request"
-            })
-        return
-    }
-
-    if (!req.body.hasOwnProperty('data')) {
-        res.status(400).json(
-            {
-                error: 'Bad Request',
-                message: "No 'data' property in api request"
-            })
-        return
-    }
-
-    const { type, data } = req.body
-
-    console.log('API Call Type: ' + type)
-
-    if (type == 'register_player') {
-
-    }
-    else if (type == 'player_data_request') {
-        if (!data.hasOwnProperty('uuid')) {
-            res.status(400).json(
-                {
-                    error: 'Bad Request',
-                    message: "No 'uuid' property in api request"
-                })
-            return
-        }
-
-        const { uuid } = data
-
-        const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
-
-        db.all(query, [uuid], (err, rows) => {
-            if (err) {
-                console.error(`Error retrieving player data: ${err.message}`)
-                res.status(400).json({ error: 'Internal Server Error' })
-            }
-            else {
-                if (rows.length > 0) {
-                    res.status(200).json({ data: rows })
-                }
-                else {
-                    console.log('Player Not Found')
-                    res.status(400).json(
-                        {
-                            error: 'Player Not Found',
-                            message: "Idk bro, player doesn't exist"
-                        })
-                    return
-                }
-            }
-        })
-    }
-    else if (type == 'request_all_player_data') {
-        const query = 'SELECT * FROM players'
-
-        db.all(query, (err, rows) => {
-            if (err) {
-                console.error(`Error retrieving player data: ${err.message}`)
-                res.status(400).json({ error: 'Internal Server Error' })
-            }
-            else {
-                res.status(200).json({ data: rows })
-            }
-        })
-    }
-    else if (type == 'increment_player_game_count') {
-
-    }
-    else if (type == 'update_player_top_wpm') {
-        if (!data.hasOwnProperty('uuid')) {
-            res.status(400).json(
-                {
-                    error: 'Bad Request',
-                    message: "No 'uuid' property in api request"
-                })
-            return
-        }
-
-        if (!data.hasOwnProperty('wpm')) {
-            res.status(400).json(
-                {
-                    error: 'Bad Request',
-                    message: "No 'wpm' property in api request"
-                })
-            return
-        }
-
-        const { uuid, wpm } = data
-
-        const querySelectTotalWPM = 'SELECT top_wpm FROM players WHERE uuid = ?'
-
-        db.get(querySelectTotalWPM, [uuid], function (err, row) {
-            if (err) {
-                console.error(`Error retrieving top_wpm: ${err.message}`)
-                res.status(400).json({ error: 'Internal Server Error' })
-                return
-            }
-
-            if (row && row.top_wpm > wpm) {
-                console.log(`The existing top_wpm (${row.top_wpm}) is higher than the incoming WPM (${wpm}). No update is performed.`)
-                res.status(400).json(
-                    {
-                        error: 'Bad Request',
-                        message: "Incoming WPM is higher than current Top WPM in api request"
-                    })
-            }
-            else {
-                const queryUpdateTotalWPM = 'UPDATE players SET top_wpm = ? WHERE uuid = ?'
-
-                db.run(queryUpdateTotalWPM, [wpm, uuid], function (err) {
-                    if (err) {
-                        console.error(`Error updating top_wpm: ${err.message}`)
-                        res.status(400).json({ error: 'Internal Server Error' })
-                    }
-                    else {
-                        console.log(`Top WPM updated for player with UUID ${uuid}`)
-                        res.status(200).json({ message: "OK" })
-                    }
-                })
-            }
-        })
-    }
-    else {
-        console.error(`Invalid Request Attempt`)
-        res.status(400).json(
-            {
-                error: 'Bad Request',
-                message: 'Invalid API Request. Why?'
-            })
-    }
-});
 
 const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
 function getPlayer(uuid) {
@@ -237,6 +93,21 @@ function getPlayer(uuid) {
             }
         }
     });
+}
+
+function genRoomID(length) {
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+    let result = '';
+  
+    while (result.length < length) {
+      const randomIndex = Math.floor(Math.random() * alphabet.length);
+      const randomChar = alphabet[randomIndex];
+      if (!result.includes(randomChar)) {
+        result += randomChar;
+      }
+    }
+  
+    return result;
 }
 
 async function registerPlayer(uuid, name) {
@@ -278,8 +149,6 @@ async function registerPlayer(uuid, name) {
 
 }
 
-
-
 // events
 ioServer.on('connection', async (socket) => {
     const userId = socket.request._query['userId'];
@@ -308,11 +177,9 @@ ioServer.on('connection', async (socket) => {
         }
     });
 
-
     socket.on('player_data_request', (data) => {
         console.log('player_data_request: ' + data);
     });
-
 
     socket.on('join', raceId => {
         console.log('join: ' + raceId);
@@ -339,14 +206,18 @@ ioServer.on('connection', async (socket) => {
         });
     });
 
-
     // user started playing
     socket.on('play', (data) => {
         console.log("Play: " + userId);
 
         const challenge = getChallenge();
 
-        var roomId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        var roomId;
+
+        do {
+            roomId = genRoomID(4);
+        } while (roomManager.getRaceById(roomId));
+
         socket.join(roomId);
 
         roomChallengeMap[roomId] = challenge;
@@ -465,8 +336,6 @@ ioServer.on('connection', async (socket) => {
             roomManager.finishRace(roomId);
         }
     });
-
-
 });
 
 function getChallenge() {
