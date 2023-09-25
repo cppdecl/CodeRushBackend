@@ -15,6 +15,7 @@ class RoomManager {
             state: "waiting", // "waiting", "running", "finished
             players: {},
             startTime: null,
+            spectators: [],
         };
 
         this.races.push(newRace);
@@ -25,10 +26,13 @@ class RoomManager {
         return this.races.find((race) => race.id === raceId);
     }
 
-    joinRace(raceId, user) {
+    joinRace(raceId, user, spectator = false) {
         const race = this.getRaceById(raceId);
         if (race) {
-            race.players[user.uuid] = Player.fromUser(raceId, user, race.literals);
+            const player = Player.fromUser(raceId, user, race.literals);
+            player.spectator = spectator;
+            race.players[user.uuid] = player;
+
             console.log(user.name + " joined room " + raceId);
             return true;
         }
