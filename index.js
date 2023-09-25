@@ -346,7 +346,8 @@ ioServer.on('connection', async (socket) => {
 
         const challenge = getChallenge();
 
-        var roomId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        // test
+        var roomId = "jdfhgkjdf";
         socket.join(roomId);
 
         roomChallengeMap[roomId] = challenge;
