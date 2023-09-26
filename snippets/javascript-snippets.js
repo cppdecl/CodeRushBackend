@@ -105,6 +105,16 @@ const javascript_snippets = [
         url: 'https://github.com/cppsort',
         content: `#include <iostream>\n#include <vector>\n#include <algorithm>\n\nint main() {\n\tstd::vector<int> numbers = {5, 3, 1, 4, 2};\n\tstd::sort(numbers.begin(), numbers.end());\n\tfor (int num : numbers) {\n\t\tstd::cout << num << " ";\n\t}\n\tstd::cout << std::endl;\n}`,
         path: 'sortingExample.cpp'
+    },
+    {
+        project: {
+            fullName: 'C++ Sorting Algorithms',
+            language: 'cpp',
+            licenseName: 'MIT',
+        },
+        url: 'https://github.com/cppsort',
+        content: `#include <iostream>\n\nusing namespace std;\nint main() {\n\tstring username;\n\tcout << "Enter your username: ";\n\t\n\tcout << "Your username is: " << username; \n}`,
+        path: 'sortingExample.cpp'
     }
 
 
