@@ -8,6 +8,7 @@
           folder structure to begin with. 
     Author: Coffee Delulu & Tyron Scott
 */
+
 const PORT = process.env.PORT || 4000;
 
 const express = require("express");
@@ -32,7 +33,6 @@ app.use(bodyParser.json())
 app.use(cors({ origin: ["https://5tszpsmv-3001.asse.devtunnels.ms/"] }));
 app.use(bodyParser.urlencoded({ extended: false }));
 
-
 const sqlite3 = require('sqlite3').verbose()
 const db = new sqlite3.Database('coderush.db')
 const readline = require('readline');
@@ -41,6 +41,7 @@ const { ResultManager } = require("./resultManager");
 const { RoomManager } = require("./roomManager");
 const { calculateLiterals } = require("./literalUtils");
 const { ChallengeManager } = require("./challengeManager");
+const { DBManager } = require("./dbManager");
 
 // map of user id to room id
 const userRaceMap = {};
@@ -51,23 +52,14 @@ const roomChallengeMap = {};
 const resultManager = new ResultManager();
 const roomManager = new RoomManager();
 const challengeManager = new ChallengeManager();
+const dbManager = new DBManager();
 
 console.log("JPCS Code Rush Backend Service")
 
 // Database Initialization
-
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS players(
-        uuid TEXT NOT NULL PRIMARY KEY CHECK (uuid <> ''),
-        name TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (name <> ''),
-        top_wpm INTEGER DEFAULT 0,
-        total_games INTEGER DEFAULT 0,
-        is_admin INTEGER DEFAULT 0
-    )`)
-})
+dbManager.init();
 
 // Routing 
-
 app.get('/', (req, res) => {
     console.log(req.method + ' Request From ' + req.hostname + ' > ' + req.path)
     res.json({
@@ -325,6 +317,7 @@ ioServer.on('connection', async (socket) => {
         if (racePlayer.hasCompleted()) {
             const result = resultManager.getResult(roomChallengeMap[roomId].content, room, roomId, racePlayer);
             ioServer.to(roomId).emit('race_completed', result);
+            dbManager.updateTopWPM(racePlayer.id, result);
         }
 
         // only finish race if all players are done
@@ -334,6 +327,7 @@ ioServer.on('connection', async (socket) => {
         }).filter((progress) => progress < 100).length == 0;
         if (allDone) {
             roomManager.finishRace(roomId);
+            dbManager.incrementGameCount(userId);
         }
     });
 });
