@@ -125,8 +125,6 @@ class DBManager {
         const playerRank = players.indexOf(player);
         const percentile = playerRank / players.length * 100;
 
-        
-
         return percentile.toFixed(2);;
     }
 

@@ -41,6 +41,7 @@ class RoomManager {
 
     startRace(raceId) {
         const race = this.getRaceById(raceId);
+        race.state = "running";
     }
 
 

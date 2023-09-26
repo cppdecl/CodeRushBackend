@@ -158,6 +158,10 @@ ioServer.on('connection', async (socket) => {
             players: roomManager.getParticipants(raceId),
             challenge: roomChallengeMap[raceId],
         });
+
+        if (room.state === "running") {
+            ioServer.to(raceId).emit('race_started', room.startTime);
+        }
     });
 
     // user started playing
@@ -264,6 +268,7 @@ ioServer.on('connection', async (socket) => {
 
         if (racePlayer.hasNotStartedTyping()) {
             room.startTime = new Date().getTime();
+            room.state = "running";
         }
 
         racePlayer.addKeyStroke(keyStroke);
