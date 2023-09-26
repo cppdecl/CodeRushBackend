@@ -88,8 +88,8 @@ function changePlayerUsername(uuid, username) {
     })
 }
 
-const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
 function getPlayer(uuid) {
+    const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
 
     const all = util.promisify(db.all.bind(db));
     return all(query, [uuid]).then((rows, err) => {
@@ -105,6 +105,33 @@ function getPlayer(uuid) {
             }
         }
     });
+}
+
+
+function updatePlayerWpm(uuid, wpm) {
+    const query = 'UPDATE players SET top_wpm = ? WHERE uuid = ?';
+
+    return db.run(query, [wpm, uuid], function (err) {
+        if (err) {
+            console.log(err);
+        }
+    })
+}
+
+async function getPlayerPercentile(userId) {
+    const query = 'SELECT * FROM players ORDER BY top_wpm';
+
+    const all = util.promisify(db.all.bind(db));
+    const index = await all(query).then((rows, err) => {
+        if (err) {
+            return [];
+        } else {
+            return rows;
+        }
+    }).then(players => {
+        return players.findIndex((player) => player.uuid === userId);
+    });
+    return index + 1;
 }
 
 function genRoomID(length) {
@@ -331,7 +358,7 @@ ioServer.on('connection', async (socket) => {
         var roomId = userRaceMap[userId];
         var room = roomManager.getRaceById(roomId);
         if (room == null) {
-            socket.emit('race_does_not_exist', raceId);
+            socket.emit('race_does_not_exist', roomId);
             return;
         }
 
@@ -366,6 +393,19 @@ ioServer.on('connection', async (socket) => {
 
         if (racePlayer.hasCompleted()) {
             const result = resultManager.getResult(roomChallengeMap[roomId].content, room, roomId, racePlayer);
+
+            const currentWpm = racePlayer.top_wpm;
+            const newWpm = result.cpm / 5;
+
+            if (newWpm > currentWpm) {
+                updatePlayerWpm(userId, (result.cpm / 5));
+            }
+
+            const percentile = await getPlayerPercentile(userId);
+            result.percentile = percentile;
+
+            console.log(JSON.stringify(result));
+
             ioServer.to(roomId).emit('race_completed', result);
         }
 
