@@ -96,6 +96,25 @@ ioServer.on('connection', async (socket) => {
 
     socket.on('change_username', (username) => {
         dbManager.changePlayerName(userId, username);
+
+        const raceId = userRaceMap[userId];
+        if (raceId) {
+            const room = roomManager.getRaceById(raceId);
+            if (room) {
+                const player = room.players[userId];
+                if (player) {
+                    player.username = username;
+
+                    const dto = {
+                        id: player.id,
+                        username: player.username,
+                        progress: player.progress,
+                        recentlyTypedLiteral: player.recentlyTypedLiteral,
+                    };
+                    ioServer.to(raceId).emit('progress_updated', dto);
+                }
+            }
+        }
     });
 
     socket.on('disconnect', () => {
