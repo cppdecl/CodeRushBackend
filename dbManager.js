@@ -75,6 +75,20 @@ class DBManager {
         });
     }
 
+    async getAllPlayersByRank(userId) {
+        const query = 'SELECT * FROM players ORDER BY top_wpm';
+        const all = util.promisify(this.db.all.bind(this.db));
+        const index = await all(query).then((rows, err) => {
+            if (err) {
+                console.log(`Failed to getAllPlayersByRank: ${err.message}`);
+                return [];
+            } else {
+                console.log('`getAllPlayersByRank Success!');
+                return rows;
+            }
+        });
+    }
+
     updateTopWPM(userId, newWpm) {
         const querySelectTotalWPM = 'SELECT top_wpm FROM players WHERE uuid = ?'
         this.db.get(querySelectTotalWPM, [userId], (err, row) => {

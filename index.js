@@ -252,7 +252,7 @@ ioServer.on('connection', async (socket) => {
         var roomId = userRaceMap[userId];
         var room = roomManager.getRaceById(roomId);
         if (room == null) {
-            socket.emit('race_does_not_exist', raceId);
+            socket.emit('race_does_not_exist', roomId);
             return;
         }
 
@@ -287,6 +287,19 @@ ioServer.on('connection', async (socket) => {
 
         if (racePlayer.hasCompleted()) {
             const result = resultManager.getResult(roomChallengeMap[roomId].content, room, roomId, racePlayer);
+
+            const currentWpm = racePlayer.top_wpm;
+            const newWpm = result.cpm / 5;
+
+            if (newWpm > currentWpm) {
+                updatePlayerWpm(userId, (result.cpm / 5));
+            }
+
+            const percentile = await dbManager.getAllPlayersByRank(userId);
+            result.percentile = percentile;
+
+            console.log(JSON.stringify(result));
+
             ioServer.to(roomId).emit('race_completed', result);
             dbManager.updateTopWPM(racePlayer.id, result);
         }
