@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose()
 const util = require('util');
+const generateRandomName = require("./randomNameGenerator");
 
 class DBManager {
     constructor() {
@@ -16,6 +17,33 @@ class DBManager {
                 is_admin INTEGER DEFAULT 0
             )`)
         })
+    }
+
+    async registerPlayer(uuid, name) {
+        if (name == null) {
+            name = generateRandomName();
+        }
+
+        const run = util.promisify(this.db.run.bind(this.db));
+        await run(`INSERT INTO players 
+        (
+            uuid, 
+            name
+        ) 
+        VALUES (?, ?)`,
+            [
+                uuid,
+                name
+            ],
+            function (err) {
+                if (err) {
+                    console.error(`Error adding new player ${name}:`, err)
+                    return;
+                } else {
+                    console.log(`New player ${name} added.`);
+                    return;
+                }
+            });
     }
 
     getPlayer(userId) {
@@ -62,14 +90,11 @@ class DBManager {
 
     incrementGameCount(userId) {
         const queryToUpdateGames = 'UPDATE players SET total_games = total_games + 1 WHERE uuid = ?'
-        this.db.run(queryToUpdateGames, [userId], function (err) 
-        {
-            if (err) 
-            {
+        this.db.run(queryToUpdateGames, [userId], function (err) {
+            if (err) {
                 console.error(`Error updating total_games: ${err.message}`);
-            } 
-            else 
-            {
+            }
+            else {
                 console.log(`Total games updated for player with userId ${userId}`);
             }
         });
@@ -91,7 +116,7 @@ class DBManager {
 
     async getPlayerPercentile(userId) {
         const players = await this.getAllPlayersByRank();
-        
+
         const player = players.find(p => p.uuid === userId);
         if (!player) {
             return 0;
@@ -99,7 +124,10 @@ class DBManager {
 
         const playerRank = players.indexOf(player);
         const percentile = playerRank / players.length * 100;
-        return percentile;
+
+        
+
+        return percentile.toFixed(2);;
     }
 
     updateTopWPM(userId, newWpm) {
@@ -109,12 +137,12 @@ class DBManager {
                 console.error(`Error retrieving top_wpm: ${err.message}`);
                 return;
             }
-    
+
             if (row && row.top_wpm > newWpm) {
                 console.log(`The existing top_wpm (${row.top_wpm}) is higher than the incoming WPM (${newWpm}). No update is performed.`);
             } else {
                 const queryUpdateTotalWPM = 'UPDATE players SET top_wpm = ? WHERE uuid = ?';
-    
+
                 this.db.run(queryUpdateTotalWPM, [newWpm, userId], (err) => {
                     if (err) {
                         console.error(`Error updating top_wpm: ${err.message}`);

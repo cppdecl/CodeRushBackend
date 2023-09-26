@@ -33,9 +33,7 @@ app.use(bodyParser.json())
 app.use(cors({ origin: ["https://5tszpsmv-3001.asse.devtunnels.ms/"] }));
 app.use(bodyParser.urlencoded({ extended: false }));
 
-const sqlite3 = require('sqlite3').verbose()
 const readline = require('readline');
-const generateRandomName = require("./randomNameGenerator");
 const { ResultManager } = require("./resultManager");
 const { RoomManager } = require("./roomManager");
 const { calculateLiterals } = require("./literalUtils");
@@ -91,7 +89,7 @@ ioServer.on('connection', async (socket) => {
     if (player == null) {
         console.log("Registering Player: " + userId);
         await dbManager.registerPlayer(userId, null);
-        console.log("Registered Player: " + (player = await getPlayer(userId)).name);
+        console.log("Registered Player: " + (player = await dbManager.getPlayer(userId)).name);
     }
 
     console.log(player.name + " connected.");
