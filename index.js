@@ -34,7 +34,6 @@ app.use(cors({ origin: ["https://5tszpsmv-3001.asse.devtunnels.ms/"] }));
 app.use(bodyParser.urlencoded({ extended: false }));
 
 const sqlite3 = require('sqlite3').verbose()
-const db = new sqlite3.Database('coderush.db')
 const readline = require('readline');
 const generateRandomName = require("./randomNameGenerator");
 const { ResultManager } = require("./resultManager");
@@ -68,37 +67,6 @@ app.get('/', (req, res) => {
     })
 })
 
-function changePlayerUsername(uuid, username) {
-    const run = util.promisify(db.run.bind(db));
-    run(`UPDATE players SET name = ? WHERE uuid = ?`, [username, uuid], function (err) {
-        if (err) {
-            console.error(`Error changing username: ${err.message}`)
-        }
-        else {
-            console.log(`Username changed: ${this.changes}`)
-        }
-    })
-}
-
-const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
-function getPlayer(uuid) {
-
-    const all = util.promisify(db.all.bind(db));
-    return all(query, [uuid]).then((rows, err) => {
-        if (err) {
-            console.error(`Error retrieving player data: ${JSON.stringify(err)}`)
-            return null;
-        } else {
-            if (rows.length > 0) {
-                return rows[0];
-            } else {
-                console.log('Player Not Found')
-                return null;
-            }
-        }
-    });
-}
-
 function genRoomID(length) {
     const alphabet = 'abcdefghijklmnopqrstuvwxyz';
     let result = '';
@@ -114,61 +82,22 @@ function genRoomID(length) {
     return result;
 }
 
-async function registerPlayer(uuid, name) {
-
-    if (name == null) {
-        name = generateRandomName();
-    }
-
-    if (name.length < 3) {
-        console.err("Name is too short");
-        return;
-    }
-
-    if (/[^a-zA-Z0-9_-]/.test(name)) {
-        console.error("Name contains invalid characters");
-        return;
-    }
-
-    const run = util.promisify(db.run.bind(db));
-    await run(`INSERT INTO players 
-    (
-        uuid, 
-        name
-    ) 
-    VALUES (?, ?)`,
-        [
-            uuid,
-            name
-        ],
-        function (err) {
-            if (err) {
-                console.error(`Error adding new player ${name}:`, err.message)
-                return;
-            } else {
-                console.log(`New player ${name} added with row id ${this.lastID}!`)
-                return;
-            }
-        });
-
-}
-
 // events
 ioServer.on('connection', async (socket) => {
     const userId = socket.request._query['userId'];
     const sessionId = socket.id;
 
-    var player = await getPlayer(userId);
+    var player = await dbManager.getPlayer(userId);
     if (player == null) {
         console.log("Registering Player: " + userId);
-        await registerPlayer(userId, null);
+        await dbManager.registerPlayer(userId, null);
         console.log("Registered Player: " + (player = await getPlayer(userId)).name);
     }
 
     console.log(player.name + " connected.");
 
     socket.on('change_username', (username) => {
-        changePlayerUsername(userId, username);
+        dbManager.changePlayerName(userId, username);
     });
 
     socket.on('disconnect', () => {
@@ -424,15 +353,8 @@ function processInput(input) {
             if (params.length < 1)
                 break
             const nameToDelete = params[0].toLowerCase()
-            const query = 'DELETE FROM players WHERE name COLLATE NOCASE = ?'
-            db.run(query, [nameToDelete], function (err) {
-                if (err) {
-                    console.error(`Error deleting row: ${err.message}`)
-                }
-                else {
-                    console.log(`Row(s) deleted: ${this.changes}`)
-                }
-            })
+            dbManager.deletePlayer(nameToDelete);
+            
             break
         default:
             console.log('Unknown command:', command)
