@@ -63,10 +63,22 @@ dbManager.init();
 app.get('/', (req, res) => {
     console.log(req.method + ' Request From ' + req.hostname + ' > ' + req.path)
     res.json({
-            message: 'CodeRush Api Works :)',
-            from: 'Coffee'
-        })
+        message: 'CodeRush Api Works :)',
+        from: 'Coffee'
+    })
 })
+
+function changePlayerUsername(uuid, username) {
+    const run = util.promisify(db.run.bind(db));
+    run(`UPDATE players SET name = ? WHERE uuid = ?`, [username, uuid], function (err) {
+        if (err) {
+            console.error(`Error changing username: ${err.message}`)
+        }
+        else {
+            console.log(`Username changed: ${this.changes}`)
+        }
+    })
+}
 
 const query = 'SELECT * FROM players WHERE uuid COLLATE NOCASE = ?'
 function getPlayer(uuid) {
@@ -90,15 +102,15 @@ function getPlayer(uuid) {
 function genRoomID(length) {
     const alphabet = 'abcdefghijklmnopqrstuvwxyz';
     let result = '';
-  
+
     while (result.length < length) {
-      const randomIndex = Math.floor(Math.random() * alphabet.length);
-      const randomChar = alphabet[randomIndex];
-      if (!result.includes(randomChar)) {
-        result += randomChar;
-      }
+        const randomIndex = Math.floor(Math.random() * alphabet.length);
+        const randomChar = alphabet[randomIndex];
+        if (!result.includes(randomChar)) {
+            result += randomChar;
+        }
     }
-  
+
     return result;
 }
 
@@ -155,16 +167,20 @@ ioServer.on('connection', async (socket) => {
 
     console.log(player.name + " connected.");
 
+    socket.on('change_username', (username) => {
+        changePlayerUsername(userId, username);
+    });
+
     socket.on('disconnect', () => {
         const raceId = userRaceMap[userId];
-        const r = roomManager.getRaceById(raceId);
-        if (r) {
+        const room = roomManager.getRaceById(raceId);
+        if (room) {
             roomManager.leaveRace(raceId, userId);
             userRaceMap[userId] = null;
 
             ioServer.to(raceId).emit('member_left', {
                 member: userId,
-                owner: r.owner
+                owner: room.owner
             });
         }
     });
@@ -173,17 +189,35 @@ ioServer.on('connection', async (socket) => {
         console.log('player_data_request: ' + data);
     });
 
-    socket.on('join', raceId => {
+    socket.on('join', data => {
+        const raceId = data.id;
+        const spectator = data.spectator;
+
         console.log('join: ' + raceId);
 
         const room = roomManager.getRaceById(raceId);
         if (!room) {
-            console.error("Room " + raceId + " not found");
+            socket.emit('race_does_not_exist', raceId);
             return;
         }
-        room.literals = calculateLiterals(roomChallengeMap[raceId].content);
+
         userRaceMap[userId] = raceId;
         socket.join(raceId);
+
+        if (spectator) {
+            room.spectators.push(userId);
+
+            socket.emit('race_joined', {
+                ...room,
+                players: roomManager.getParticipants(raceId),
+                challenge: roomChallengeMap[raceId],
+            });
+            return;
+        }
+        
+
+        room.literals = calculateLiterals(roomChallengeMap[raceId].content);
+
         roomManager.joinRace(raceId, player);
 
         ioServer.to(raceId).emit('member_joined', {
@@ -194,6 +228,7 @@ ioServer.on('connection', async (socket) => {
         });
         socket.emit('race_joined', {
             ...room,
+            players: roomManager.getParticipants(raceId),
             challenge: roomChallengeMap[raceId],
         });
     });
@@ -217,13 +252,16 @@ ioServer.on('connection', async (socket) => {
 
         const room = roomManager.createRace(roomId, userId);
         if (!room) {
-            console.error("Internal server error while creating room.");
+            socket.emit('race_does_not_exist', raceId);
+            return;
         }
         room.literals = calculateLiterals(challenge.content);
+
         roomManager.joinRace(roomId, player);
 
         ioServer.to(roomId).emit('race_joined', {
             ...room,
+            players: roomManager.getParticipants(roomId),
             challenge: challenge,
         });
     });
@@ -231,6 +269,12 @@ ioServer.on('connection', async (socket) => {
     socket.on('refresh_challenge', (data) => {
         const raceId = userRaceMap[userId];
         const room = roomManager.getRaceById(raceId);
+
+        if (!room) {
+            socket.emit('race_does_not_exist', raceId);
+            return;
+        }
+
         if (room.owner !== userId) {
             return;
         }
@@ -248,9 +292,9 @@ ioServer.on('connection', async (socket) => {
             player.reset(literals);
         });
 
-
         ioServer.to(raceId).emit('race_joined', {
             ...room,
+            players: roomManager.getParticipants(raceId),
         });
         ioServer.to(raceId).emit('challenge_selected', room.challenge);
     });
@@ -276,13 +320,10 @@ ioServer.on('connection', async (socket) => {
     });
 
     socket.on('key_stroke', async (keyStroke) => {
-        keyStroke["timestamp"] = Date.now();
-
         var roomId = userRaceMap[userId];
-
         var room = roomManager.getRaceById(roomId);
         if (room == null) {
-            console.error("Room " + roomId + " not found")
+            socket.emit('race_does_not_exist', raceId);
             return;
         }
 
@@ -291,6 +332,8 @@ ioServer.on('connection', async (socket) => {
             console.error(`Player ${userId} not found in room ${roomId}`)
             return;
         }
+        
+        keyStroke["timestamp"] = Date.now();
 
         if (racePlayer.hasNotStartedTyping()) {
             room.startTime = new Date().getTime();
@@ -309,7 +352,6 @@ ioServer.on('connection', async (socket) => {
                 progress: racePlayer.progress,
                 recentlyTypedLiteral: racePlayer.recentlyTypedLiteral,
             };
-            console.log(dto);
             ioServer.to(roomId).emit('progress_updated', dto);
         }
 
@@ -340,14 +382,20 @@ async function calculateProgress(racePlayer) {
     const roomId = userRaceMap[racePlayer.id];
     const room = roomManager.getRaceById(racePlayer.raceId);
     if (room == null) {
-        console.error(`Unable to upate progress for ${racePlayer.id}`);
+        socket.emit('race_does_not_exist', raceId);
         return;
     }
     const challengeContent = roomChallengeMap[roomId];
+
     const currentInput = racePlayer.getValidInput();
-    const code = challengeContent.content;
+
+    const strippedCode = challengeContent.content
+        .split('\n')
+        .map((subText) => subText.trimStart())
+        .join('\n');
+
     return Math.floor(
-        (currentInput.length / code.length) * 100,
+        (currentInput.length / strippedCode.length) * 100,
     );
 }
 

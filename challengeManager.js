@@ -4,7 +4,16 @@ class ChallengeManager {
 
     getRandomChallenge() {
         const length = javascript_snippets.length;
-        return javascript_snippets[Math.floor(Math.random() * length)];
+        
+        var challenge = javascript_snippets[Math.floor(Math.random() * length)];
+        challenge = this.trimChallengeContent(challenge);
+        return challenge;
+
+    }
+
+    trimChallengeContent(challenge) {
+        challenge.content = challenge.content.trim();
+        return challenge;
     }
 }
 

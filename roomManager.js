@@ -15,6 +15,7 @@ class RoomManager {
             state: "waiting", // "waiting", "running", "finished
             players: {},
             startTime: null,
+            spectators: [],
         };
 
         this.races.push(newRace);
@@ -25,10 +26,13 @@ class RoomManager {
         return this.races.find((race) => race.id === raceId);
     }
 
-    joinRace(raceId, user) {
+    joinRace(raceId, user, spectator = false) {
         const race = this.getRaceById(raceId);
         if (race) {
-            race.players[user.uuid] = Player.fromUser(raceId, user, race.literals);
+            const player = Player.fromUser(raceId, user, race.literals);
+            player.spectator = spectator;
+            race.players[user.uuid] = player;
+
             console.log(user.name + " joined room " + raceId);
             return true;
         }
@@ -58,8 +62,23 @@ class RoomManager {
         const race = this.getRaceById(raceId);
         if (race) {
             // remove userId from race players
-            race.players[userId] = null;
-            console.log("User " + userId + " left the room.");
+            delete race.players[userId]
+
+            // delete race if players are empty
+            const players = Object.keys(race.players);
+            if (players.length == 0) {
+                console.log("Deleting race " + race.id + " reason: no user left.");
+                this.removeRace(raceId);
+            } else {
+                const ownerLeft = race.owner === userId;
+                if (ownerLeft) {
+                    const otherPlayer = players.find((player) => player != userId);
+                    race.owner = otherPlayer;
+
+                    console.log("Owner " + userId + " left. New owner: " + race.owner);
+                }
+            }
+
         }
     }
 
@@ -68,6 +87,13 @@ class RoomManager {
         if (race) {
             console.log(`${raceId} finished.`);
             race.state = "finished";
+        }
+    }
+
+    removeRace(raceId) {
+        const index = this.races.findIndex((race) => race.id == raceId);
+        if (index != -1) {
+            this.races.splice(index, 1);
         }
     }
 }
