@@ -75,10 +75,10 @@ class DBManager {
         });
     }
 
-    async getAllPlayersByRank(userId) {
+    async getAllPlayersByRank() {
         const query = 'SELECT * FROM players ORDER BY top_wpm';
         const all = util.promisify(this.db.all.bind(this.db));
-        const index = await all(query).then((rows, err) => {
+        return await all(query).then((rows, err) => {
             if (err) {
                 console.log(`Failed to getAllPlayersByRank: ${err.message}`);
                 return [];
@@ -87,6 +87,19 @@ class DBManager {
                 return rows;
             }
         });
+    }
+
+    async getPlayerPercentile(userId) {
+        const players = await this.getAllPlayersByRank();
+        
+        const player = players.find(p => p.uuid === userId);
+        if (!player) {
+            return 0;
+        }
+
+        const playerRank = players.indexOf(player);
+        const percentile = playerRank / players.length * 100;
+        return percentile;
     }
 
     updateTopWPM(userId, newWpm) {

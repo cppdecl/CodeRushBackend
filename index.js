@@ -295,7 +295,7 @@ ioServer.on('connection', async (socket) => {
                 updatePlayerWpm(userId, (result.cpm / 5));
             }
 
-            const percentile = await dbManager.getAllPlayersByRank(userId);
+            const percentile = await dbManager.getPlayerPercentile(userId);
             result.percentile = percentile;
 
             console.log(JSON.stringify(result));
