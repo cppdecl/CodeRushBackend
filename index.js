@@ -268,9 +268,9 @@ ioServer.on('connection', async (socket) => {
 
         ioServer.to(raceId).emit('countdown', 5);
 
-        let count = 4;
+        let count = 5;
         const interval = setInterval(() => {
-            ioServer.to(raceId).emit('countdown', count);
+            ioServer.to(raceId).emit('countdown', count - 1);
             count--;
             if (count === 0) {
                 clearInterval(interval);
