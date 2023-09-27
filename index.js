@@ -83,7 +83,6 @@ function genRoomID(length) {
 // events
 ioServer.on('connection', async (socket) => {
     const userId = socket.request._query['userId'];
-    const sessionId = socket.id;
 
     var player = await dbManager.getPlayer(userId);
     if (player == null) {
@@ -141,7 +140,17 @@ ioServer.on('connection', async (socket) => {
 
         console.log('join: ' + raceId);
 
-        const room = roomManager.getRaceById(raceId);
+        var room = roomManager.getRaceById(raceId);
+
+        if (!room && raceId === 'jpcs') {
+            socket.join(raceId);
+            roomManager.createRace('jpcs', userId);
+            const challenge = getChallenge();
+            roomChallengeMap[raceId] = challenge;
+            userRaceMap[userId] = raceId;
+
+            room = roomManager.getRaceById(raceId);
+        }
         if (!room) {
             socket.emit('race_does_not_exist', raceId);
             return;
@@ -160,7 +169,7 @@ ioServer.on('connection', async (socket) => {
             });
             return;
         }
-        
+
 
         room.literals = calculateLiterals(roomChallengeMap[raceId].content);
 
@@ -256,7 +265,10 @@ ioServer.on('connection', async (socket) => {
         const raceId = userRaceMap[userId];
         roomManager.startRace(raceId);
 
-        let count = 5;
+
+        ioServer.to(raceId).emit('countdown', 5);
+
+        let count = 4;
         const interval = setInterval(() => {
             ioServer.to(raceId).emit('countdown', count);
             count--;
@@ -282,7 +294,7 @@ ioServer.on('connection', async (socket) => {
             console.error(`Player ${userId} not found in room ${roomId}`)
             return;
         }
-        
+
         keyStroke["timestamp"] = Date.now();
 
         if (racePlayer.hasNotStartedTyping()) {
